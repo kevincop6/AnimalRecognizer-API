@@ -1,0 +1,59 @@
+[
+    {
+        "id": 1,
+        "nombre": "Three-toed Sloth",
+        "nombre_comun": "Perezoso de Tres Dedos",
+        "descripcion": "El perico ligero, perezoso o perezoso bayo (Bradypus variegatus) es una especie de perezoso tridáctilo de la familia Bradipodidae, perteneciente al orden Pilosa, propia de Centroamérica y Sudamérica. Fue declarado como símbolo nacional de Costa Rica, representando la fauna de este país.\n\nEs la especie más distribuida y común del grupo, hallándose en muchos y diferentes ambientes, incluyendo selvas siempreverdes, bosques secos y áreas naturales profundamente perturbadas. Es solitario, nocturno y diurno, alimentándose de hojas de muchas especies de árboles.\n\nLa hembra emite un lamento fuerte, estridente, durante la estación de apareamiento para atraer machos. Es un alarido que suena onomatopéyicamente como un \"ay ay\" y por tal motivo ha recibido este nombre de parte de varias etnias que habitan o habitaban su hábitat.",
+        "ubicacion": {
+            "pais": "Costa Rica",
+            "provincia_origen": "Nacional"
+        },
+        "taxonomia": {
+            "reino": "Animal (Animalia)",
+            "filo": "Cordados (Chordata)",
+            "clase": "Mamíferos (Mammalia)",
+            "orden": "Pilosos (Pilosa)",
+            "familia": "Bradipódidos (Bradypodidae)",
+            "genero": "Bradypus"
+        },
+        "imagen_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/596584574/original.jpg"
+    },
+    {
+        "id": 3,
+        "nombre": "Tapirus bairdii",
+        "nombre_comun": "Tapir Centroamericano",
+        "descripcion": "El tapir centroamericano, norteño o de Baird (Tapirus bairdii) es una especie de mamífero perisodáctilo de la familia de los tapíridos, una de las cuatro especies americanas de tapir. Habita las selvas tropicales entre el sur de México y el noroeste de Colombia, con presencia no confirmada en Ecuador. Es la especie más grande del género en las Américas. Alcanza entre 2 y 2,2 m de longitud, 1 m de alzada y hasta 300 kg de peso. Presenta crin corta, hocico largo y robusto con una característica nariz en forma de trompa, pelaje pardo a grisáceo, borde de la oreja blanco y labio blancuzco a grisáceo. Su gestación dura 400 días, naciendo una cría de aproximadamente 10 kg, que es capaz de caminar en unos 15 minutos después del nacimiento y permanece con la madre más de un año. Son excelentes nadadores y buceadores. Los tapires son solitarios, territoriales y, aunque pueden formar parejas, no suelen formar grupos. Son animales esquivos y cautelosos debido a los efectos psicológicos de la cacería. Su visión es pobre, pero su olfato y oído son muy desarrollados. Cuando se asustan, huyen ruidosamente, aunque también pueden hacerlo sigilosamente dependiendo de la situación.",
+        "ubicacion": {
+            "pais": "Costa rica",
+            "provincia_origen": "Nacional"
+        },
+        "taxonomia": {
+            "reino": "Animal (Animalia)",
+            "filo": "Cordados (Chordata)",
+            "clase": "Mamíferos (Mammalia)",
+            "orden": "Perisodáctilos (Perissodactyla)",
+            "familia": "Tapíridos (Tapiridae)",
+            "genero": "Tapirus"
+        },
+        "imagen_url": "https://static.inaturalist.org/photos/119218040/medium.jpg"
+    },
+    {
+        "id": 4,
+        "nombre": "Agalychnis callidryas",
+        "nombre_comun": "Rana de Árbol de Ojos Rojos",
+        "descripcion": "La rana verde de ojos rojos o rana de ojos rojos (Agalychnis callidryas) es una especie de anfibio anuro de la familia Hylidae, que habita desde la parte oriental de Honduras hasta el noroeste de Colombia. Su nombre proviene del griego (aga), que significa \"lleno de\"; (lychnos), \"brillante\"; y el nombre de especie hace referencia a (kallos), \"belleza\"; y (dryas), \"ninfa de árbol\". Lo más notable son sus grandes ojos rojos con pupila vertical. Como adultos, llegan a tener colores brillantes sobre todo su cuerpo. Predomina el verde, pero usualmente presentan otros colores como azul o amarillo. Las patas delanteras presentan un azul brillante, mientras que las traseras son rojas o anaranjadas. La coloración de esta rana es muy llamativa. El macho es más pequeño que la hembra: 56 mm y la hembra 71 mm. Son de hábitos nocturnos y arborícolas.\n\nLa rana verde de ojos rojos se alimenta primordialmente de insectos. Entre sus depredadores se pueden nombrar las aves, murciélagos y serpientes. Su piel contiene toxinas, pero no son muy poderosas.\n\nHasta hace poco, las poblaciones distribuidas desde el sur de México hasta la parte occidental de Honduras eran catalogadas dentro de esta especie. Sin embargo, en 2019 se publicó un estudio por los investigadores James R. McCranie, Javier Sunyer y José G. Martínez Fonseca, en donde han propuesto, con base en características morfológicas y de biogeografía, que dichos organismos representarían una especie completamente diferente. Por ende, se recuperaría la especie Agalychnis taylori (Funkhouser, 1957), quien hasta el momento se consideraba un sinónimo más moderno de A. callidryas.",
+        "ubicacion": {
+            "pais": "Costa rica",
+            "provincia_origen": "Nacional"
+        },
+        "taxonomia": {
+            "reino": "Animal (Animalia)",
+            "filo": "Cordados (Chordata)",
+            "clase": "Anfibios (Amphibia)",
+            "orden": "Anuros (Anura)",
+            "familia": "Filomedúsidos (Phyllomedusidae)",
+            "genero": "Agalychnis (Agalychnis)"
+        },
+        "imagen_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/6229148/medium.jpeg"
+    }
+]
