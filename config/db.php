@@ -4,7 +4,7 @@
 // 1. Configuración de Credenciales
 // Si estás en XAMPP local, el usuario suele ser 'root' y la contraseña vacía.
 $host = 'localhost';
-$db_name = 'bd_avistamientos';
+$db_name = 'animalrecognizer';
 $username = 'root'; 
 $password = ''; 
 
