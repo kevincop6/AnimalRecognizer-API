@@ -10,7 +10,8 @@ class Auth {
 
     // --- REGISTRO (Sin cambios) ---
     public function registrarUsuario($nombre, $usuario, $correo, $password, $biografia = "") {
-        // Verificar duplicados
+        
+        // --- Paso 1: Verificar duplicados ---
         $sql = "SELECT id FROM usuarios WHERE correo = :correo OR nombre_usuario = :usuario";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':correo' => $correo, ':usuario' => $usuario]);
@@ -19,17 +20,34 @@ class Auth {
             throw new Exception("El correo o usuario ya existen.");
         }
 
-        // Crear usuario
+        // --- Paso 2: Crear usuario ---
+        $this->pdo->beginTransaction(); // Inicia la transacción para asegurar atomicidad
+        
         $hash = password_hash($password, PASSWORD_DEFAULT);
         $sqlInsert = "INSERT INTO usuarios (nombre_completo, nombre_usuario, correo, password_hash, biografia, rol, estado) 
                       VALUES (:nombre, :usuario, :correo, :pass, :bio, 'estandar', 1)";
         $stmtInsert = $this->pdo->prepare($sqlInsert);
         
-        if ($stmtInsert->execute([':nombre' => $nombre, ':usuario' => $usuario, ':correo' => $correo, ':pass' => $hash, ':bio' => $biografia])) {
-            return $this->pdo->lastInsertId();
-        } else {
-            throw new Exception("Error al registrar.");
+        if (!$stmtInsert->execute([':nombre' => $nombre, ':usuario' => $usuario, ':correo' => $correo, ':pass' => $hash, ':bio' => $biografia])) {
+            $this->pdo->rollBack();
+            throw new Exception("Error al registrar el usuario.");
         }
+        
+        $usuario_id = $this->pdo->lastInsertId();
+
+        // --- Paso 3: Crear Configuración por Defecto ---
+        // Se utilizan los valores ENUM definidos previamente: 'geolocalizacion', 1 (activo), 0 (claro)
+        $sqlConfig = "INSERT INTO configuracion_usuario (usuario_id, notificaciones_activas, tema_oscura, paquete_predeterminado) 
+                      VALUES (:uid, 1, 0, 'geolocalizacion')";
+        $stmtConfig = $this->pdo->prepare($sqlConfig);
+        
+        if (!$stmtConfig->execute([':uid' => $usuario_id])) {
+            $this->pdo->rollBack();
+            throw new Exception("Error al crear la configuración por defecto.");
+        }
+
+        $this->pdo->commit(); // Confirma la transacción (ambas inserciones fueron exitosas)
+        return $usuario_id;
     }
 
     // --- LOGIN (CIERRA ANTERIOR -> ABRE NUEVA) ---
