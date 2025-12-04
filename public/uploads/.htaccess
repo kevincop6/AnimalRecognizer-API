@@ -1,0 +1,5 @@
+# RUTA: AnimalRecognizer-API/uploads/.htaccess
+
+# Esta regla bloquea completamente el acceso HTTP/HTTPS directo a esta carpeta.
+Order Deny,Allow
+Deny from all

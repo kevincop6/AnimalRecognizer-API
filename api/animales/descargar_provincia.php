@@ -1,7 +1,7 @@
 <?php
-// RUTA: api/animales/descargar_provincia.php (FORZANDO DESCARGA DE ARCHIVO)
+// RUTA: api/animales/descargar_provincia.php (GATEWAY SEGURO)
 
-// Configuramos las cabeceras para el protocolo de descarga
+// Headers estándar para APIs JSON
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
@@ -11,12 +11,15 @@ header("Access-Control-Allow-Headers: Authorization, Content-Type");
 require_once '../../config/db.php';     
 require_once '../../includes/Auth.php'; 
 
-// ... (Manejo de OPTIONS y Método POST - El código anterior permanece igual) ...
-
+// ----------------------------------------------------
+// 0. MANEJO DE PRE-FLIGHT (OPTIONS)
+// ----------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
+
+// Solo se permite el método POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(["mensaje" => "Método no permitido."]);
@@ -24,21 +27,26 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // ----------------------------------------------------
-// 1. OBTENER PROVINCIA Y TOKEN
+// 1. AUTENTICACIÓN Y OBTENCIÓN DE DATOS
 // ----------------------------------------------------
-// ... (Lectura de token y provincia desde POST/JSON) ...
+
+// Lectura de provincia y token desde POST/JSON
 $data_raw = file_get_contents("php://input");
 $data_json = json_decode($data_raw, true);
+
 $provincia_raw = $_POST['provincia'] ?? ($data_json['provincia'] ?? null);
 $token_final = $_POST['token'] ?? ($data_json['token'] ?? null);
 
-// 2. AUTENTICACIÓN
 $auth = new Auth($pdo);
+
 if (empty($token_final) || !$auth->validarToken($token_final)) {
     http_response_code(401);
     echo json_encode(["mensaje" => "Acceso denegado. Token inválido o no proporcionado."]);
     exit;
 }
+
+// ----------------------------------------------------
+// 2. CONSTRUCCIÓN Y LECTURA DEL ARCHIVO (NORMALIZACIÓN COMPLETA)
 // ----------------------------------------------------
 
 if (empty($provincia_raw)) {
@@ -48,16 +56,18 @@ if (empty($provincia_raw)) {
 }
 
 try {
-    // Normalización de la provincia
+    // 🚩 NORMALIZACIÓN CRÍTICA: Eliminar espacios y tildes, y minúsculas (ej: 'San Jose' -> 'sanjose')
     $provincia_normalizada = strtolower($provincia_raw);
     $provincia_normalizada = str_replace(
-        ['á', 'é', 'í', 'ó', 'ú', 'ñ'], 
-        ['a', 'e', 'i', 'o', 'u', 'n'], 
+        [' ', 'á', 'é', 'í', 'ó', 'ú', 'ñ'], 
+        ['', 'a', 'e', 'i', 'o', 'u', 'n'], 
         $provincia_normalizada
     );
 
+    // Construcción de la ruta absoluta para acceder al archivo protegido
     $ruta_base = dirname(dirname(__DIR__)); 
-    $ruta_archivo = $ruta_base . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "json" . DIRECTORY_SEPARATOR . $provincia_normalizada . ".json";
+    $nombre_archivo = $provincia_normalizada . ".json";
+    $ruta_archivo = $ruta_base . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "json" . DIRECTORY_SEPARATOR . $nombre_archivo;
     
     // Verificación de archivo
     if (!file_exists($ruta_archivo)) {
@@ -66,23 +76,25 @@ try {
         exit;
     }
 
-    // 🚩 LÓGICA DE DESCARGA FORZADA
+    // ----------------------------------------------------
+    // 3. LÓGICA DE DESCARGA FORZADA (readfile)
+    // ----------------------------------------------------
     
-    // 1. Limpiar cualquier búfer de salida para evitar archivos corruptos
+    // 1. Limpiar búfer
     if (ob_get_level()) {
         ob_end_clean();
     }
     
-    // 2. Establecer cabeceras necesarias para la descarga binaria
+    // 2. Establecer cabeceras cruciales para la descarga en Android
     header('Content-Description: File Transfer');
-    header('Content-Type: application/json'); // Mantiene el tipo para la descarga
-    header('Content-Disposition: attachment; filename="' . $provincia_normalizada . '.json"'); // Fuerza el nombre de archivo
+    header('Content-Type: application/json');
+    header('Content-Disposition: attachment; filename="' . $nombre_archivo . '"'); 
     header('Expires: 0');
     header('Cache-Control: must-revalidate');
     header('Pragma: public');
-    header('Content-Length: ' . filesize($ruta_archivo)); // 🚩 Crucial para el progreso de la descarga en Android
+    header('Content-Length: ' . filesize($ruta_archivo)); 
     
-    // 3. Leer y servir el archivo raw
+    // 3. Servir el archivo
     http_response_code(200);
     readfile($ruta_archivo);
     exit;
