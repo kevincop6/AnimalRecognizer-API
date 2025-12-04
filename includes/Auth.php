@@ -150,5 +150,71 @@ class Auth {
         if (!empty($headers) && preg_match('/Bearer\s(\S+)/', $headers, $matches)) return $matches[1];
         return null;
     }
+
+    /**
+     * Genera un par de llaves RSA protegidas con PIN (passphrase), 
+     * las guarda en /public/llaves/ y registra el identificador.
+     * @param int $usuario_id ID del administrador.
+     * @param string $pin El PIN/passphrase para proteger la llave privada.
+     * @return array Datos de la llave generada.
+     */
+    public function generarLlaveAdmin($usuario_id, $pin) {
+        
+        // 1. Verificar si el usuario es un administrador
+        $sql_rol = "SELECT rol, nombre_usuario FROM usuarios WHERE id = :uid";
+        $stmt_rol = $this->pdo->prepare($sql_rol);
+        $stmt_rol->execute([':uid' => $usuario_id]);
+        $user_data = $stmt_rol->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user_data['rol'] !== 'admin') {
+            throw new Exception("Solo los administradores pueden generar llaves criptográficas.");
+        }
+
+        // 2. Definir rutas y generar identificador único
+        $ruta_base_proyecto = dirname(dirname(dirname(__FILE__))); 
+        $dir_llaves = $ruta_base_proyecto . '/public/llaves/';
+        
+        if (!is_dir($dir_llaves)) {
+            mkdir($dir_llaves, 0700, true);
+        }
+
+        $identificador = hash('sha256', $user_data['nombre_usuario'] . time() . rand());
+        
+        // 3. Generar el par de llaves RSA
+        $config = array(
+            "private_key_bits" => 2048,
+            "private_key_type" => OPENSSL_KEYTYPE_RSA,
+        );
+        $res = openssl_pkey_new($config);
+        
+        if (!$res) {
+            throw new Exception("Error al generar el par de llaves OpenSSL. Verifique la extensión.");
+        }
+
+        // 4. Exportar la llave privada (protegida con el PIN)
+        $ruta_privada = $dir_llaves . $identificador . ".pem";
+        
+        // El formato PEM es protegido con -aes256 por defecto si se usa passphrase
+        $export_private = openssl_pkey_export_to_file($res, $ruta_privada, $pin);
+        
+        if (!$export_private) {
+            throw new Exception("Error al escribir el archivo de llave privada. Verifique permisos.");
+        }
+
+        // 5. Registrar la metadata en la base de datos
+        $sql_insert = "INSERT INTO llaves_criptograficas (usuario_id, identificador_llave) 
+                       VALUES (:uid, :identificador)";
+        $stmt_insert = $this->pdo->prepare($sql_insert);
+        $stmt_insert->execute([
+            ':uid' => $usuario_id, 
+            ':identificador' => $identificador
+        ]);
+
+        return [
+            "mensaje" => "Llave generada y protegida con PIN. Identificador registrado.",
+            "identificador" => $identificador,
+            "archivo_privado" => basename($ruta_privada)
+        ];
+    }
 }
 ?>

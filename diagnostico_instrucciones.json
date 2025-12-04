@@ -1,0 +1,24 @@
+{
+  "extensiones": {
+    "openssl": {
+      "descripcion": "Crítico: Requerido para generar las llaves criptográficas (RSA/PEM).",
+      "solucion": "Descomentar 'extension=openssl' en php.ini y reiniciar el servidor."
+    },
+    "pdo_mysql": {
+      "descripcion": "Crítico: Requerido para la conexión a la base de datos.",
+      "solucion": "Descomentar 'extension=pdo_mysql' en php.ini y reiniciar el servidor."
+    },
+    "json": {
+      "descripcion": "Crítico: Requerido para codificar y decodificar datos de la API.",
+      "solucion": "Descomentar 'extension=json' en php.ini y reiniciar el servidor."
+    }
+  },
+  "database": {
+    "descripcion": "Verificación de la conexión a la base de datos (credenciales, servicio activo).",
+    "solucion": "Verificar que el servidor MySQL esté activo y que los datos en config/db.php sean correctos."
+  },
+  "directory": {
+    "descripcion": "Verificación de existencia y permisos de escritura/lectura.",
+    "solucion_permisos": "Verificar que la ruta exista. Otorgar permisos de escritura/lectura (chmod 700 o 777) para que PHP pueda operar en esta carpeta."
+  }
+}
