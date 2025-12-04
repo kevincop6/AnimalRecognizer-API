@@ -1,0 +1,12 @@
+# Llaves criptográficas en carpeta public
+/public/llaves/
+/public/llaves/*
+public/llaves/
+public/llaves/*
+
+# Extensiones comunes de llaves (por si se mueven)
+*.key
+*.pem
+*.ppk
+id_rsa
+id_ed25519
