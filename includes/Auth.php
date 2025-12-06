@@ -151,70 +151,149 @@ class Auth {
         return null;
     }
 
-    /**
-     * Genera un par de llaves RSA protegidas con PIN (passphrase), 
-     * las guarda en /public/llaves/ y registra el identificador.
-     * @param int $usuario_id ID del administrador.
-     * @param string $pin El PIN/passphrase para proteger la llave privada.
-     * @return array Datos de la llave generada.
-     */
-    public function generarLlaveAdmin($usuario_id, $pin) {
-        
-        // 1. Verificar si el usuario es un administrador
-        $sql_rol = "SELECT rol, nombre_usuario FROM usuarios WHERE id = :uid";
-        $stmt_rol = $this->pdo->prepare($sql_rol);
-        $stmt_rol->execute([':uid' => $usuario_id]);
-        $user_data = $stmt_rol->fetch(PDO::FETCH_ASSOC);
-        
-        if ($user_data['rol'] !== 'admin') {
-            throw new Exception("Solo los administradores pueden generar llaves criptográficas.");
-        }
+ // -----------------------------------------------------------------------------------
+    // --- GENERAR LLAVE ADMIN (USANDO PHPSECLIB)
+    // -----------------------------------------------------------------------------------
+   public function generarLlaveAdmin($usuario_id, $pin)
+{
+    // Separador de directorios compatible Windows/Linux
+    $DS = DIRECTORY_SEPARATOR;
 
-        // 2. Definir rutas y generar identificador único
-        $ruta_base_proyecto = dirname(dirname(dirname(__FILE__))); 
-        $dir_llaves = $ruta_base_proyecto . '/public/llaves/';
-        
-        if (!is_dir($dir_llaves)) {
-            mkdir($dir_llaves, 0700, true);
-        }
+    // 1. Verificar si el usuario es un administrador
+    $sql_rol = "SELECT rol, nombre_usuario FROM usuarios WHERE id = :uid";
+    $stmt_rol = $this->pdo->prepare($sql_rol);
+    $stmt_rol->execute([':uid' => $usuario_id]);
+    $user_data = $stmt_rol->fetch(PDO::FETCH_ASSOC);
 
-        $identificador = hash('sha256', $user_data['nombre_usuario'] . time() . rand());
-        
-        // 3. Generar el par de llaves RSA
-        $config = array(
-            "private_key_bits" => 2048,
-            "private_key_type" => OPENSSL_KEYTYPE_RSA,
-        );
-        $res = openssl_pkey_new($config);
-        
-        if (!$res) {
-            throw new Exception("Error al generar el par de llaves OpenSSL. Verifique la extensión.");
-        }
-
-        // 4. Exportar la llave privada (protegida con el PIN)
-        $ruta_privada = $dir_llaves . $identificador . ".pem";
-        
-        // El formato PEM es protegido con -aes256 por defecto si se usa passphrase
-        $export_private = openssl_pkey_export_to_file($res, $ruta_privada, $pin);
-        
-        if (!$export_private) {
-            throw new Exception("Error al escribir el archivo de llave privada. Verifique permisos.");
-        }
-
-        // 5. Registrar la metadata en la base de datos
-        $sql_insert = "INSERT INTO llaves_criptograficas (usuario_id, identificador_llave) 
-                       VALUES (:uid, :identificador)";
-        $stmt_insert = $this->pdo->prepare($sql_insert);
-        $stmt_insert->execute([
-            ':uid' => $usuario_id, 
-            ':identificador' => $identificador
-        ]);
-
-        return [
-            "mensaje" => "Llave generada y protegida con PIN. Identificador registrado.",
-            "identificador" => $identificador,
-            "archivo_privado" => basename($ruta_privada)
-        ];
+    if (!$user_data) {
+        throw new Exception("Usuario no encontrado.");
     }
+
+    if ($user_data['rol'] !== 'admin') {
+        throw new Exception("Solo los administradores pueden generar llaves criptográficas.");
+    }
+
+    // 2. Definir rutas y generar identificador único
+    // Solo subimos DOS niveles (includes -> AnimalRecognizer-API/)
+    $ruta_base_proyecto = dirname(dirname(__FILE__));
+
+    // RUTA FINAL: .../AnimalRecognizer-API/public/llaves/
+    $dir_llaves = $ruta_base_proyecto . $DS . 'public' . $DS . 'llaves' . $DS;
+
+    if (!is_dir($dir_llaves)) {
+        if (!mkdir($dir_llaves, 0700, true)) {
+            throw new Exception("Error: No se pudo crear el directorio de llaves. Verifique permisos.");
+        }
+    }
+
+    $identificador = hash('sha256', $user_data['nombre_usuario'] . time() . rand());
+    $ruta_privada  = $dir_llaves . $identificador . "_privada.pem";
+
+    // 3. Verificar disponibilidad de OpenSSL
+    if (!extension_loaded('openssl') || !function_exists('openssl_pkey_new')) {
+        throw new Exception("OpenSSL no está disponible en este servidor.");
+    }
+
+    // 4. Determinar openssl.cnf según el sistema operativo (Windows o Linux)
+    $opensslConfig = null;
+
+    if (stripos(PHP_OS, 'WIN') === 0) {
+        // Posibles rutas típicas en Windows (XAMPP/WAMP, etc.)
+        $posiblesRutasWin = [
+            'C:\\xampp\\apache\\bin\\openssl.cnf',
+            'C:\\xampp\\php\\extras\\openssl\\openssl.cnf',
+            'C:\\xampp\\php\\extras\\ssl\\openssl.cnf',
+            'C:\\Program Files\\Apache24\\conf\\openssl.cnf',
+        ];
+
+        foreach ($posiblesRutasWin as $ruta) {
+            if (is_file($ruta)) {
+                $opensslConfig = $ruta;
+                break;
+            }
+        }
+
+        // Si tú ya conoces exactamente la ruta en tu servidor, la puedes fijar aquí:
+        // $opensslConfig = 'C:\\xampp\\apache\\bin\\openssl.cnf';
+    } else {
+        // Linux / Unix (Apache, Nginx, etc.)
+        $posiblesRutasLinux = [
+            '/etc/ssl/openssl.cnf',
+            '/usr/lib/ssl/openssl.cnf',
+            '/usr/local/ssl/openssl.cnf',
+            '/etc/pki/tls/openssl.cnf',
+        ];
+
+        foreach ($posiblesRutasLinux as $ruta) {
+            if (is_file($ruta)) {
+                $opensslConfig = $ruta;
+                break;
+            }
+        }
+
+        // Si tu distro usa una ruta específica, también la puedes fijar manualmente:
+        // $opensslConfig = '/etc/ssl/openssl.cnf';
+    }
+
+    // 5. Configuración para generar la llave
+    $config = [
+        "private_key_bits" => 2048,
+        "private_key_type" => OPENSSL_KEYTYPE_RSA,
+    ];
+
+    // Solo añadimos 'config' si encontramos un openssl.cnf existente
+    if ($opensslConfig !== null) {
+        $config['config'] = $opensslConfig;
+    }
+
+    // Limpiar errores previos de OpenSSL
+    while (openssl_error_string()) {
+        // Vaciar el stack de errores
+    }
+
+    // 6. Generar el par de llaves con OpenSSL nativo
+    $res = openssl_pkey_new($config);
+
+    if (!$res) {
+        $errores = [];
+        while ($e = openssl_error_string()) {
+            $errores[] = $e;
+        }
+        $detalle = $errores ? implode(" | ", $errores) : "OpenSSL devolvió false sin más detalles.";
+
+        // 👀 IMPORTANTE: ya NO usamos el texto “la función nativa está bloqueada”.
+        throw new Exception("Error al generar el par de llaves OpenSSL. Detalle: " . $detalle);
+    }
+
+    // 7. Exportar la llave privada al archivo físico, protegida con el PIN
+    if (!openssl_pkey_export_to_file($res, $ruta_privada, $pin, $config)) {
+        $errores = [];
+        while ($e = openssl_error_string()) {
+            $errores[] = $e;
+        }
+        $detalle = $errores ? implode(" | ", $errores) : "Error desconocido al exportar la llave.";
+
+        throw new Exception(
+            "Error al escribir el archivo de llave privada. " .
+            "Verifique permisos del directorio de llaves y antivirus. Detalle: " . $detalle
+        );
+    }
+
+    // 8. Registrar la metadata en la base de datos
+    $sql_insert = "INSERT INTO llaves_criptograficas (usuario_id, identificador_llave) 
+                   VALUES (:uid, :identificador)";
+    $stmt_insert = $this->pdo->prepare($sql_insert);
+    $stmt_insert->execute([
+        ':uid'          => $usuario_id,
+        ':identificador'=> $identificador
+    ]);
+
+    return [
+        "mensaje"        => "Llave criptográfica generada y registrada nativamente con OpenSSL.",
+        "identificador"  => $identificador,
+        "archivo_privado"=> basename($ruta_privada)
+    ];
+}
+
 }
 ?>
