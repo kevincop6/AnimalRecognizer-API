@@ -186,7 +186,13 @@ class Auth {
         }
     }
 
-    $identificador = hash('sha256', $user_data['nombre_usuario'] . time() . rand());
+    // OJO: la columna identificador_llave es VARCHAR(50), recortamos el SHA-256
+    $identificador = substr(
+        hash('sha256', $user_data['nombre_usuario'] . time() . rand()),
+        0,
+        50
+    );
+
     $ruta_privada  = $dir_llaves . $identificador . "_privada.pem";
 
     // 3. Verificar disponibilidad de OpenSSL
@@ -261,7 +267,6 @@ class Auth {
         }
         $detalle = $errores ? implode(" | ", $errores) : "OpenSSL devolvió false sin más detalles.";
 
-        // 👀 IMPORTANTE: ya NO usamos el texto “la función nativa está bloqueada”.
         throw new Exception("Error al generar el par de llaves OpenSSL. Detalle: " . $detalle);
     }
 
@@ -279,9 +284,32 @@ class Auth {
         );
     }
 
+    // 7.1 (Opcional pero recomendado)
+    // Revocar llaves anteriores activas de este usuario
+    $sql_revocar_previas = "
+        UPDATE llaves_criptograficas
+        SET revocada = 1
+        WHERE usuario_id = :uid
+          AND revocada = 0
+    ";
+    $stmt_revocar_previas = $this->pdo->prepare($sql_revocar_previas);
+    $stmt_revocar_previas->execute([
+        ':uid' => $usuario_id,
+    ]);
+
     // 8. Registrar la metadata en la base de datos
-    $sql_insert = "INSERT INTO llaves_criptograficas (usuario_id, identificador_llave) 
-                   VALUES (:uid, :identificador)";
+    $sql_insert = "
+        INSERT INTO llaves_criptograficas (
+            usuario_id,
+            identificador_llave,
+            fecha_creacion,
+            revocada
+        ) VALUES (
+            :uid,
+            :identificador,
+            NOW(),
+            0
+        )";
     $stmt_insert = $this->pdo->prepare($sql_insert);
     $stmt_insert->execute([
         ':uid'          => $usuario_id,
@@ -294,6 +322,7 @@ class Auth {
         "archivo_privado"=> basename($ruta_privada)
     ];
 }
+
 
 }
 ?>
