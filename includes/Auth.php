@@ -10,7 +10,8 @@ class Auth {
 
     // --- REGISTRO (Sin cambios) ---
     public function registrarUsuario($nombre, $usuario, $correo, $password, $biografia = "") {
-        // Verificar duplicados
+        
+        // --- Paso 1: Verificar duplicados ---
         $sql = "SELECT id FROM usuarios WHERE correo = :correo OR nombre_usuario = :usuario";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':correo' => $correo, ':usuario' => $usuario]);
@@ -19,17 +20,34 @@ class Auth {
             throw new Exception("El correo o usuario ya existen.");
         }
 
-        // Crear usuario
+        // --- Paso 2: Crear usuario ---
+        $this->pdo->beginTransaction(); // Inicia la transacción para asegurar atomicidad
+        
         $hash = password_hash($password, PASSWORD_DEFAULT);
         $sqlInsert = "INSERT INTO usuarios (nombre_completo, nombre_usuario, correo, password_hash, biografia, rol, estado) 
                       VALUES (:nombre, :usuario, :correo, :pass, :bio, 'estandar', 1)";
         $stmtInsert = $this->pdo->prepare($sqlInsert);
         
-        if ($stmtInsert->execute([':nombre' => $nombre, ':usuario' => $usuario, ':correo' => $correo, ':pass' => $hash, ':bio' => $biografia])) {
-            return $this->pdo->lastInsertId();
-        } else {
-            throw new Exception("Error al registrar.");
+        if (!$stmtInsert->execute([':nombre' => $nombre, ':usuario' => $usuario, ':correo' => $correo, ':pass' => $hash, ':bio' => $biografia])) {
+            $this->pdo->rollBack();
+            throw new Exception("Error al registrar el usuario.");
         }
+        
+        $usuario_id = $this->pdo->lastInsertId();
+
+        // --- Paso 3: Crear Configuración por Defecto ---
+        // Se utilizan los valores ENUM definidos previamente: 'geolocalizacion', 1 (activo), 0 (claro)
+        $sqlConfig = "INSERT INTO configuracion_usuario (usuario_id, notificaciones_activas, tema_oscura, paquete_predeterminado) 
+                      VALUES (:uid, 1, 0, 'geolocalizacion')";
+        $stmtConfig = $this->pdo->prepare($sqlConfig);
+        
+        if (!$stmtConfig->execute([':uid' => $usuario_id])) {
+            $this->pdo->rollBack();
+            throw new Exception("Error al crear la configuración por defecto.");
+        }
+
+        $this->pdo->commit(); // Confirma la transacción (ambas inserciones fueron exitosas)
+        return $usuario_id;
     }
 
     // --- LOGIN (CIERRA ANTERIOR -> ABRE NUEVA) ---
@@ -132,5 +150,179 @@ class Auth {
         if (!empty($headers) && preg_match('/Bearer\s(\S+)/', $headers, $matches)) return $matches[1];
         return null;
     }
+
+ // -----------------------------------------------------------------------------------
+    // --- GENERAR LLAVE ADMIN (USANDO PHPSECLIB)
+    // -----------------------------------------------------------------------------------
+   public function generarLlaveAdmin($usuario_id, $pin)
+{
+    // Separador de directorios compatible Windows/Linux
+    $DS = DIRECTORY_SEPARATOR;
+
+    // 1. Verificar si el usuario es un administrador
+    $sql_rol = "SELECT rol, nombre_usuario FROM usuarios WHERE id = :uid";
+    $stmt_rol = $this->pdo->prepare($sql_rol);
+    $stmt_rol->execute([':uid' => $usuario_id]);
+    $user_data = $stmt_rol->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user_data) {
+        throw new Exception("Usuario no encontrado.");
+    }
+
+    if ($user_data['rol'] !== 'admin') {
+        throw new Exception("Solo los administradores pueden generar llaves criptográficas.");
+    }
+
+    // 2. Definir rutas y generar identificador único
+    // Solo subimos DOS niveles (includes -> AnimalRecognizer-API/)
+    $ruta_base_proyecto = dirname(dirname(__FILE__));
+
+    // RUTA FINAL: .../AnimalRecognizer-API/public/llaves/
+    $dir_llaves = $ruta_base_proyecto . $DS . 'public' . $DS . 'llaves' . $DS;
+
+    if (!is_dir($dir_llaves)) {
+        if (!mkdir($dir_llaves, 0700, true)) {
+            throw new Exception("Error: No se pudo crear el directorio de llaves. Verifique permisos.");
+        }
+    }
+
+    // OJO: la columna identificador_llave es VARCHAR(50), recortamos el SHA-256
+    $identificador = substr(
+        hash('sha256', $user_data['nombre_usuario'] . time() . rand()),
+        0,
+        50
+    );
+
+    $ruta_privada  = $dir_llaves . $identificador . "_privada.pem";
+
+    // 3. Verificar disponibilidad de OpenSSL
+    if (!extension_loaded('openssl') || !function_exists('openssl_pkey_new')) {
+        throw new Exception("OpenSSL no está disponible en este servidor.");
+    }
+
+    // 4. Determinar openssl.cnf según el sistema operativo (Windows o Linux)
+    $opensslConfig = null;
+
+    if (stripos(PHP_OS, 'WIN') === 0) {
+        // Posibles rutas típicas en Windows (XAMPP/WAMP, etc.)
+        $posiblesRutasWin = [
+            'C:\\xampp\\apache\\bin\\openssl.cnf',
+            'C:\\xampp\\php\\extras\\openssl\\openssl.cnf',
+            'C:\\xampp\\php\\extras\\ssl\\openssl.cnf',
+            'C:\\Program Files\\Apache24\\conf\\openssl.cnf',
+        ];
+
+        foreach ($posiblesRutasWin as $ruta) {
+            if (is_file($ruta)) {
+                $opensslConfig = $ruta;
+                break;
+            }
+        }
+
+        // Si tú ya conoces exactamente la ruta en tu servidor, la puedes fijar aquí:
+        // $opensslConfig = 'C:\\xampp\\apache\\bin\\openssl.cnf';
+    } else {
+        // Linux / Unix (Apache, Nginx, etc.)
+        $posiblesRutasLinux = [
+            '/etc/ssl/openssl.cnf',
+            '/usr/lib/ssl/openssl.cnf',
+            '/usr/local/ssl/openssl.cnf',
+            '/etc/pki/tls/openssl.cnf',
+        ];
+
+        foreach ($posiblesRutasLinux as $ruta) {
+            if (is_file($ruta)) {
+                $opensslConfig = $ruta;
+                break;
+            }
+        }
+
+        // Si tu distro usa una ruta específica, también la puedes fijar manualmente:
+        // $opensslConfig = '/etc/ssl/openssl.cnf';
+    }
+
+    // 5. Configuración para generar la llave
+    $config = [
+        "private_key_bits" => 2048,
+        "private_key_type" => OPENSSL_KEYTYPE_RSA,
+    ];
+
+    // Solo añadimos 'config' si encontramos un openssl.cnf existente
+    if ($opensslConfig !== null) {
+        $config['config'] = $opensslConfig;
+    }
+
+    // Limpiar errores previos de OpenSSL
+    while (openssl_error_string()) {
+        // Vaciar el stack de errores
+    }
+
+    // 6. Generar el par de llaves con OpenSSL nativo
+    $res = openssl_pkey_new($config);
+
+    if (!$res) {
+        $errores = [];
+        while ($e = openssl_error_string()) {
+            $errores[] = $e;
+        }
+        $detalle = $errores ? implode(" | ", $errores) : "OpenSSL devolvió false sin más detalles.";
+
+        throw new Exception("Error al generar el par de llaves OpenSSL. Detalle: " . $detalle);
+    }
+
+    // 7. Exportar la llave privada al archivo físico, protegida con el PIN
+    if (!openssl_pkey_export_to_file($res, $ruta_privada, $pin, $config)) {
+        $errores = [];
+        while ($e = openssl_error_string()) {
+            $errores[] = $e;
+        }
+        $detalle = $errores ? implode(" | ", $errores) : "Error desconocido al exportar la llave.";
+
+        throw new Exception(
+            "Error al escribir el archivo de llave privada. " .
+            "Verifique permisos del directorio de llaves y antivirus. Detalle: " . $detalle
+        );
+    }
+
+    // 7.1 (Opcional pero recomendado)
+    // Revocar llaves anteriores activas de este usuario
+    $sql_revocar_previas = "
+        UPDATE llaves_criptograficas
+        SET revocada = 1
+        WHERE usuario_id = :uid
+          AND revocada = 0
+    ";
+    $stmt_revocar_previas = $this->pdo->prepare($sql_revocar_previas);
+    $stmt_revocar_previas->execute([
+        ':uid' => $usuario_id,
+    ]);
+
+    // 8. Registrar la metadata en la base de datos
+    $sql_insert = "
+        INSERT INTO llaves_criptograficas (
+            usuario_id,
+            identificador_llave,
+            fecha_creacion,
+            revocada
+        ) VALUES (
+            :uid,
+            :identificador,
+            NOW(),
+            0
+        )";
+    $stmt_insert = $this->pdo->prepare($sql_insert);
+    $stmt_insert->execute([
+        ':uid'          => $usuario_id,
+        ':identificador'=> $identificador
+    ]);
+
+    return [
+        "mensaje"        => "Llave criptográfica generada y registrada nativamente con OpenSSL.",
+        "identificador"  => $identificador,
+        "archivo_privado"=> basename($ruta_privada)
+    ];
+}
+
+
 }
 ?>
