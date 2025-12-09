@@ -14,7 +14,4 @@ id_ed25519
 # ======================================================
 # 🗂️ ARCHIVOS JSON PRIVILEGIADOS — NO subir al repositorio
 # ======================================================
-/public/json/
-/public/json/*
-public/json/
 public/json/*

@@ -7,7 +7,7 @@ class AnimalProcessor {
     private $rutaDestino = "../../public/json/"; 
     
     // Lista de provincias que corresponden a los nombres en la columna 'provincia_region' de la DB
-    // Nota: 'Nacional' es un caso especial que se maneja en la lógica.
+    // Nota: 'Nacional' se maneja como archivo global con TODOS los datos.
     private $provincias = [
         'San Jose', 'Alajuela', 'Cartago', 'Heredia', 'Guanacaste', 'Puntarenas', 'Limón'
     ];
@@ -34,7 +34,7 @@ class AnimalProcessor {
         $totalAnimales = $this->pdo->query("SELECT COUNT(id) FROM animales")->fetchColumn();
         $totalLotes = ceil($totalAnimales / $this->batchSize);
         
-        // Incluimos 'Nacional' y el resto de las provincias en los datos a ensamblar
+        // Provincias + Nacional (Nacional será el archivo global con TODOS los registros)
         $provinciasYNacional = array_merge($this->provincias, ['Nacional']);
         
         $datosProvinciales = [];
@@ -50,11 +50,15 @@ class AnimalProcessor {
 
             // Consulta SQL con LEFT JOIN para obtener la imagen principal
             $sql = "SELECT 
-                        a.id, a.nombre_comun, a.nombre_cientifico, a.descripcion, a.pais_origen, 
-                        a.provincia_region, a.taxonomia, m.url_archivo 
+                        a.id, 
+                        a.nombre_cientifico, 
+                        a.provincia_region, 
+                        m.url_archivo 
                     FROM animales a
                     LEFT JOIN media_archivos m 
-                        ON a.id = m.entidad_id AND m.tipo_entidad = 'animal' AND m.es_principal = 1
+                        ON a.id = m.entidad_id 
+                       AND m.tipo_entidad = 'animal' 
+                       AND m.es_principal = 1
                     ORDER BY a.id ASC
                     LIMIT {$this->batchSize} OFFSET {$offset}";
 
@@ -65,34 +69,27 @@ class AnimalProcessor {
             // 2. Procesar el lote
             foreach ($loteAnimales as $animal) {
                 $regionAnimal = $animal['provincia_region'];
-                
-                // Formatear la descripción (extraer texto si está en JSON)
-                $descripcionTexto = $animal['descripcion'];
-                if (substr(trim($descripcionTexto), 0, 1) === '{') {
-                     $decoded_desc = json_decode($descripcionTexto, true);
-                     $descripcionTexto = $decoded_desc['descripcion']['texto'] ?? $descripcionTexto; 
-                 }
 
-                // Estructura de datos final
+                // 🔹 Solo los campos necesarios para el JSON
                 $datosLimpios = [
-                    "id" => $animal['id'],
-                    "nombre" => $animal['nombre_cientifico'],
-                    "nombre_comun" => $animal['nombre_comun'],
-                    "descripcion" => $descripcionTexto,
-                    "ubicacion" => [
-                        "pais" => $animal['pais_origen'],
-                        "provincia_origen" => $animal['provincia_region']
-                    ],
-                    "taxonomia" => json_decode($animal['taxonomia'] ?? '{}'),
+                    "id"         => (int)$animal['id'],
+                    "nombre"     => $animal['nombre_cientifico'], // nombre = nombre_cientifico
                     "imagen_url" => $animal['url_archivo']
                 ];
 
-                // 3. Lógica de asignación (Si es Nacional, va a todas las provincias)
-                // Usamos $provinciasYNacional para asegurar que 'Nacional' también se guarda en su propio archivo
+                // --- LÓGICA DE ASIGNACIÓN ---
+
+                // 1) Siempre se agrega al bucket 'Nacional' (TODOS los datos sin excepción)
+                if (isset($datosProvinciales['Nacional'])) {
+                    $datosProvinciales['Nacional'][] = $datosLimpios;
+                }
+
+                // 2) Manejo de provincias:
+                //    - Si es 'Nacional' -> se copia a TODAS las provincias.
+                //    - Si es una provincia específica -> solo a esa provincia.
                 $destinos = [];
                 if ($regionAnimal === 'Nacional') {
                     $destinos = $this->provincias; // Va a las 7 provincias
-                    $destinos[] = 'Nacional'; // Y a su propio archivo Nacional.json
                 } else {
                     $destinos[] = $regionAnimal;
                 }
@@ -102,6 +99,7 @@ class AnimalProcessor {
                         $datosProvinciales[$provincia][] = $datosLimpios;
                     }
                 }
+
                 $resultadoOperacion["animales_procesados"]++;
             }
             
@@ -109,7 +107,7 @@ class AnimalProcessor {
             $resultadoOperacion["lotes_procesados"]++;
         }
 
-        // 4. Guardar los archivos JSON finales
+        // 4. Guardar los archivos JSON finales (provincias + Nacional)
         $resultadosEscritura = $this->writeJSONFiles($datosProvinciales);
         
         return array_merge($resultadoOperacion, ["archivos_generados" => $resultadosEscritura]);
@@ -123,7 +121,7 @@ class AnimalProcessor {
         // Opciones de JSON: UNESCAPED_UNICODE (para tildes), PRETTY_PRINT (formato legible), UNESCAPED_SLASHES
         $opcionesJson = JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
         
-        // Incluimos Nacional en la escritura para generar su propio archivo
+        // Provincias + Nacional
         $provinciasYNacional = array_merge($this->provincias, ['Nacional']);
         
         foreach ($provinciasYNacional as $provinciaActual) {
@@ -131,7 +129,7 @@ class AnimalProcessor {
             
             $jsonString = json_encode($lista, $opcionesJson);
             
-            // 🚩 LÓGICA DE NORMALIZACIÓN CRÍTICA: Minúsculas, sin tildes, SIN ESPACIOS.
+            // LÓGICA DE NORMALIZACIÓN: Minúsculas, sin tildes, SIN ESPACIOS.
             $nombreArchivoLimpio = strtolower($provinciaActual);
             $nombreArchivoLimpio = str_replace(
                 [' ', 'ó', 'é', 'á', 'í', 'ú', 'ñ'], 
