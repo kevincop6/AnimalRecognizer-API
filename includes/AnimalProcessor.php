@@ -147,5 +147,54 @@ class AnimalProcessor {
         }
         return $resultados;
     }
+    /**
+     * Cuenta animales por provincia, incluyendo la categoría 'Nacional' en cada conteo provincial.
+     * Retorna un array con el conteo por provincia y un total nacional consolidado.
+     * * @return array Array asociativo con los conteos.
+     */
+    public function contarAnimalesPorProvincia() {
+        // Las provincias definidas en el ENUM de la tabla 'animales'
+        $provincias = [
+            'San Jose', 
+            'Alajuela', 
+            'Cartago', 
+            'Heredia', 
+            'Guanacaste', 
+            'Puntarenas', 
+            'Limón'
+        ];
+        
+        // 1. Consulta SQL para obtener todos los conteos agrupados.
+        // Se cuenta el total de registros y se agrupa por 'provincia_region'.
+        $sql = "SELECT provincia_region, COUNT(id) AS conteo
+                FROM animales
+                GROUP BY provincia_region";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        $resultados_db = $stmt->fetchAll(PDO::FETCH_KEY_PAIR); // Retorna [provincia => conteo]
+
+        // 2. Inicializar el array de resultados y obtener el conteo 'Nacional'.
+        $conteo_nacional_base = $resultados_db['Nacional'] ?? 0;
+        $conteo_total_nacional = 0;
+        $conteo_final = [];
+
+        // 3. Procesar resultados: Sumar 'Nacional' a cada provincia.
+        foreach ($provincias as $provincia) {
+            // Conteo específico de la provincia (sin incluir 'Nacional')
+            $conteo_provincial = $resultados_db[$provincia] ?? 0;
+            
+            // Conteo total para la provincia (Provincial + Nacional)
+            $conteo_final[$provincia] = $conteo_provincial + $conteo_nacional_base;
+            
+            // Sumar al total nacional consolidado
+            $conteo_total_nacional += $conteo_provincial;
+        }
+
+        // 4. Calcular el Total Nacional Consolidado (Suma de los conteos provinciales + el conteo 'Nacional' una única vez)
+        $conteo_final['nacional'] = $conteo_total_nacional + $conteo_nacional_base;
+
+        return $conteo_final;
+    }
 }
 ?>
