@@ -1,7 +1,7 @@
 [
     {
         "id": 1,
-        "nombre": "Three-toed Sloth",
+        "nombre": "Bradypus variegatus",
         "imagen_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/596584574/original.jpg"
     },
     {
@@ -13,5 +13,65 @@
         "id": 4,
         "nombre": "Agalychnis callidryas",
         "imagen_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/6229148/medium.jpeg"
+    },
+    {
+        "id": 5,
+        "nombre": "Ara macao",
+        "imagen_url": "https://static.inaturalist.org/photos/67503679/medium.jpg"
+    },
+    {
+        "id": 6,
+        "nombre": "Ateles geoffroyi",
+        "imagen_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/216610095/medium.jpeg"
+    },
+    {
+        "id": 7,
+        "nombre": "Brotogeris jugularis",
+        "imagen_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/157601516/medium.jpg"
+    },
+    {
+        "id": 8,
+        "nombre": "Caiman crocodilus",
+        "imagen_url": "https://static.inaturalist.org/photos/185182912/medium.jpeg"
+    },
+    {
+        "id": 9,
+        "nombre": "Campephilus guatemalensis",
+        "imagen_url": "https://static.inaturalist.org/photos/120041622/medium.jpg"
+    },
+    {
+        "id": 10,
+        "nombre": "Egretta caerulea",
+        "imagen_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/106796895/medium.jpg"
+    },
+    {
+        "id": 11,
+        "nombre": "Leptodeira ornata",
+        "imagen_url": "https://static.inaturalist.org/photos/222448413/medium.jpeg"
+    },
+    {
+        "id": 12,
+        "nombre": "Lophostrix cristata",
+        "imagen_url": "https://static.inaturalist.org/photos/175632579/medium.jpg"
+    },
+    {
+        "id": 14,
+        "nombre": "Pecari tajacu",
+        "imagen_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/336070139/medium.jpg"
+    },
+    {
+        "id": 15,
+        "nombre": "Pteroglossus frantzii",
+        "imagen_url": "https://static.inaturalist.org/photos/395050402/medium.jpg"
+    },
+    {
+        "id": 16,
+        "nombre": "Tamandua mexicana",
+        "imagen_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/254765621/medium.jpeg"
+    },
+    {
+        "id": 17,
+        "nombre": "Bothriechis schlegelii",
+        "imagen_url": "https://static.inaturalist.org/photos/64442/large.jpg"
     }
 ]

@@ -8,6 +8,7 @@ public/llaves/*
 *.key
 *.pem
 *.ppk
+*.json
 id_rsa
 id_ed25519
 
