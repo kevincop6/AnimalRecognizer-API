@@ -14,7 +14,7 @@ try {
         throw new Exception("Token no enviado.");
     }
 
-    $token = $_POST['token'];
+    $token  = $_POST['token'];
     $pagina = isset($_POST['pagina']) ? max(1, (int)$_POST['pagina']) : 1;
 
     // =====================================================
@@ -32,8 +32,6 @@ try {
 
     // =====================================================
     // 3️⃣ DETERMINAR USUARIO A MOSTRAR
-    //     - Si viene usuario_id → ese perfil
-    //     - Si no → el del token
     // =====================================================
     $usuarioPerfilId = isset($_POST['usuario_id']) && is_numeric($_POST['usuario_id'])
         ? (int)$_POST['usuario_id']
@@ -83,6 +81,19 @@ try {
     $stmtLikes = $pdo->prepare($sqlLikes);
     $stmtLikes->execute([':uid' => $usuarioPerfilId]);
     $likesPerfil = (int)$stmtLikes->fetchColumn();
+
+    // =====================================================
+    // 6️⃣.1 SEGUIDORES DEL PERFIL (NUEVO)
+    // =====================================================
+    $sqlSeguidores = "
+        SELECT COUNT(id)
+        FROM usuarios_seguidores
+        WHERE seguido_id = :uid
+          AND estado = 'activo'
+    ";
+    $stmtSeguidores = $pdo->prepare($sqlSeguidores);
+    $stmtSeguidores->execute([':uid' => $usuarioPerfilId]);
+    $totalSeguidores = (int)$stmtSeguidores->fetchColumn();
 
     // =====================================================
     // 7️⃣ AVISTAMIENTOS (PUBLICACIONES)
@@ -142,6 +153,7 @@ try {
             "bio" => $perfil['biografia'],
             "foto_perfil" => $perfil['foto_perfil'],
             "likes" => $likesPerfil,
+            "seguidores" => $totalSeguidores,
             "es_propietario" => ($usuarioPerfilId === $usuarioTokenId)
         ],
         "publicaciones" => $publicaciones,
