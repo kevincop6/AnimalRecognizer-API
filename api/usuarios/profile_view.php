@@ -37,6 +37,8 @@ try {
         ? (int)$_POST['usuario_id']
         : $usuarioTokenId;
 
+    $esPropietario = ($usuarioPerfilId === $usuarioTokenId);
+
     // =====================================================
     // 4️⃣ PAGINACIÓN
     // =====================================================
@@ -83,7 +85,7 @@ try {
     $likesPerfil = (int)$stmtLikes->fetchColumn();
 
     // =====================================================
-    // 6️⃣.1 SEGUIDORES DEL PERFIL (NUEVO)
+    // 6️⃣.1 SEGUIDORES DEL PERFIL
     // =====================================================
     $sqlSeguidores = "
         SELECT COUNT(id)
@@ -94,6 +96,29 @@ try {
     $stmtSeguidores = $pdo->prepare($sqlSeguidores);
     $stmtSeguidores->execute([':uid' => $usuarioPerfilId]);
     $totalSeguidores = (int)$stmtSeguidores->fetchColumn();
+
+    // =====================================================
+    // 6️⃣.2 ¿EL USUARIO AUTENTICADO SIGUE ESTE PERFIL?
+    // =====================================================
+    $siguiendo = false;
+
+    if (!$esPropietario) {
+        $sqlSiguiendo = "
+            SELECT id
+            FROM usuarios_seguidores
+            WHERE seguidor_id = :seguidor
+              AND seguido_id = :seguido
+              AND estado = 'activo'
+            LIMIT 1
+        ";
+        $stmtSiguiendo = $pdo->prepare($sqlSiguiendo);
+        $stmtSiguiendo->execute([
+            ':seguidor' => $usuarioTokenId,
+            ':seguido'  => $usuarioPerfilId
+        ]);
+
+        $siguiendo = $stmtSiguiendo->fetch() ? true : false;
+    }
 
     // =====================================================
     // 7️⃣ AVISTAMIENTOS (PUBLICACIONES)
@@ -154,7 +179,8 @@ try {
             "foto_perfil" => $perfil['foto_perfil'],
             "likes" => $likesPerfil,
             "seguidores" => $totalSeguidores,
-            "es_propietario" => ($usuarioPerfilId === $usuarioTokenId)
+            "es_propietario" => $esPropietario,
+            "siguiendo" => $siguiendo
         ],
         "publicaciones" => $publicaciones,
         "paginacion" => [
