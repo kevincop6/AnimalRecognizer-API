@@ -8,19 +8,17 @@ require_once __DIR__ . '/../../includes/Auth.php';
 
 try {
 
-    // --------------------------------------------------
+    // ==================================================
     // 1. AUTENTICACIÓN (TOKEN POR POST)
-    // --------------------------------------------------
+    // ==================================================
     if (empty($_POST['token'])) {
         http_response_code(401);
         echo json_encode(["error" => "Token no proporcionado."]);
         exit;
     }
 
-    $token = trim($_POST['token']);
-
     $auth = new Auth($pdo);
-    $usuarioSesion = $auth->validarToken($token);
+    $usuarioSesion = $auth->validarToken(trim($_POST['token']));
 
     if (!$usuarioSesion) {
         http_response_code(401);
@@ -30,9 +28,9 @@ try {
 
     $usuarioIdSesion = (int)$usuarioSesion['usuario_id'];
 
-    // --------------------------------------------------
+    // ==================================================
     // 2. PARÁMETROS DE BÚSQUEDA Y PAGINACIÓN
-    // --------------------------------------------------
+    // ==================================================
     if (empty($_POST['buscar'])) {
         http_response_code(400);
         echo json_encode(["error" => "Debe enviar el parámetro buscar."]);
@@ -42,39 +40,43 @@ try {
     $buscar = '%' . trim($_POST['buscar']) . '%';
 
     $limite = 5;
-    $pagina = (isset($_POST['pagina']) && is_numeric($_POST['pagina']) && $_POST['pagina'] > 0)
-        ? (int)$_POST['pagina']
-        : 1;
+    $pagina = (
+        isset($_POST['pagina']) &&
+        is_numeric($_POST['pagina']) &&
+        (int)$_POST['pagina'] > 0
+    ) ? (int)$_POST['pagina'] : 1;
 
     $offset = ($pagina - 1) * $limite;
 
-    // --------------------------------------------------
-    // 3. TOTAL DE RESULTADOS (SIN INCLUIR AL USUARIO LOGUEADO)
-    // --------------------------------------------------
+    // ==================================================
+    // 3. TOTAL DE RESULTADOS (EXCLUYENDO AL USUARIO LOGUEADO)
+    // ==================================================
     $sqlTotal = "
-        SELECT COUNT(DISTINCT u.id)
+        SELECT COUNT(*)
         FROM usuarios u
         WHERE u.id != :uid
           AND (
-                u.nombre_completo LIKE :t_nombre
-                OR u.nombre_usuario LIKE :t_usuario
-                OR u.correo LIKE :t_correo
+            u.nombre_completo LIKE :t_nombre
+            OR u.nombre_usuario LIKE :t_usuario
+            OR u.correo LIKE :t_correo
           )
     ";
 
     $stmtTotal = $pdo->prepare($sqlTotal);
     $stmtTotal->execute([
-        ':uid'        => $usuarioIdSesion,
-        ':t_nombre'   => $buscar,
-        ':t_usuario'  => $buscar,
-        ':t_correo'   => $buscar
+        ':uid'       => $usuarioIdSesion,
+        ':t_nombre'  => $buscar,
+        ':t_usuario' => $buscar,
+        ':t_correo'  => $buscar
     ]);
 
     $totalResultados = (int)$stmtTotal->fetchColumn();
 
-    // --------------------------------------------------
-    // 4. CONSULTA PRINCIPAL PAGINADA
-    // --------------------------------------------------
+    // ==================================================
+    // 4. CONSULTA PRINCIPAL PAGINADA (LIKES CORRECTOS)
+    //    usuario_id = quien dio like
+    //    liked_by_usuario_id = perfil que recibe el like
+    // ==================================================
     $sql = "
         SELECT 
             u.id,
@@ -85,12 +87,21 @@ try {
             -- FOTO DE PERFIL
             ma.url_archivo AS foto_perfil,
 
-            -- CONTADOR DE LIKES
+            -- TOTAL DE LIKES DEL PERFIL (cuántos usuarios le dieron like)
             (
                 SELECT COUNT(*)
                 FROM usuarios_likes ul
-                WHERE ul.usuario_id = u.id
-            ) AS likes
+                WHERE ul.liked_by_usuario_id = u.id
+            ) AS likes,
+
+            -- SI EL USUARIO LOGUEADO YA LE DIO LIKE A ESTE PERFIL
+            (
+                SELECT IF(COUNT(*) > 0, 1, 0)
+                FROM usuarios_likes ul2
+                WHERE ul2.usuario_id = :uid_sesion
+                  AND ul2.liked_by_usuario_id = u.id
+                LIMIT 1
+            ) AS yo_di_like
 
         FROM usuarios u
 
@@ -102,31 +113,30 @@ try {
 
         WHERE u.id != :uid_excluir
           AND (
-                u.nombre_completo LIKE :buscar_nombre
-                OR u.nombre_usuario LIKE :buscar_usuario
-                OR u.correo LIKE :buscar_correo
+            u.nombre_completo LIKE :q_nombre
+            OR u.nombre_usuario LIKE :q_usuario
+            OR u.correo LIKE :q_correo
           )
 
-        GROUP BY u.id
         ORDER BY u.nombre_usuario ASC
-        LIMIT :limite OFFSET :offset
+        LIMIT $limite OFFSET $offset
     ";
 
     $stmt = $pdo->prepare($sql);
 
-    $stmt->bindValue(':uid_excluir',     $usuarioIdSesion, PDO::PARAM_INT);
-    $stmt->bindValue(':buscar_nombre',  $buscar, PDO::PARAM_STR);
-    $stmt->bindValue(':buscar_usuario', $buscar, PDO::PARAM_STR);
-    $stmt->bindValue(':buscar_correo',  $buscar, PDO::PARAM_STR);
-    $stmt->bindValue(':limite',          $limite, PDO::PARAM_INT);
-    $stmt->bindValue(':offset',          $offset, PDO::PARAM_INT);
+    $stmt->bindValue(':uid_excluir', $usuarioIdSesion, PDO::PARAM_INT);
+    $stmt->bindValue(':uid_sesion',  $usuarioIdSesion, PDO::PARAM_INT);
+
+    $stmt->bindValue(':q_nombre',  $buscar, PDO::PARAM_STR);
+    $stmt->bindValue(':q_usuario', $buscar, PDO::PARAM_STR);
+    $stmt->bindValue(':q_correo',  $buscar, PDO::PARAM_STR);
 
     $stmt->execute();
     $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // --------------------------------------------------
+    // ==================================================
     // 5. RESPUESTA
-    // --------------------------------------------------
+    // ==================================================
     echo json_encode([
         "pagina_actual" => $pagina,
         "por_pagina"    => $limite,

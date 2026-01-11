@@ -73,16 +73,38 @@ try {
     }
 
     // =====================================================
-    // 6️⃣ LIKES DEL PERFIL
+    // 6️⃣ LIKES DEL PERFIL (TOTAL)
     // =====================================================
     $sqlLikes = "
         SELECT COUNT(id)
         FROM usuarios_likes
-        WHERE usuario_id = :uid
+        WHERE liked_by_usuario_id = :uid
     ";
     $stmtLikes = $pdo->prepare($sqlLikes);
     $stmtLikes->execute([':uid' => $usuarioPerfilId]);
     $likesPerfil = (int)$stmtLikes->fetchColumn();
+
+    // =====================================================
+    // 🔹 6️⃣.0 ¿EL USUARIO AUTENTICADO LE DIO LIKE? (AGREGADO)
+    // =====================================================
+    $likeado = false;
+
+    if (!$esPropietario) {
+        $sqlLikeado = "
+            SELECT id
+            FROM usuarios_likes
+            WHERE usuario_id = :liker
+              AND liked_by_usuario_id = :liked
+            LIMIT 1
+        ";
+        $stmtLikeado = $pdo->prepare($sqlLikeado);
+        $stmtLikeado->execute([
+            ':liker' => $usuarioTokenId,
+            ':liked' => $usuarioPerfilId
+        ]);
+
+        $likeado = $stmtLikeado->fetch() ? true : false;
+    }
 
     // =====================================================
     // 6️⃣.1 SEGUIDORES DEL PERFIL
@@ -180,7 +202,8 @@ try {
             "likes" => $likesPerfil,
             "seguidores" => $totalSeguidores,
             "es_propietario" => $esPropietario,
-            "siguiendo" => $siguiendo
+            "siguiendo" => $siguiendo,
+            "likeado" => $likeado   // 👈 SOLO AGREGADO
         ],
         "publicaciones" => $publicaciones,
         "paginacion" => [
