@@ -18,7 +18,7 @@ try {
         exit;
     }
 
-    $token = $_POST['token'];
+    $token = trim($_POST['token']);
     $avistamientoId = (int) $_POST['avistamiento_id'];
 
     // ==================================================
@@ -38,18 +38,21 @@ try {
     $usuarioId = (int) $usuarioToken['usuario_id'];
 
     // ==================================================
-    // 3. Obtener avistamiento (SOLO si está validado)
+    // 3. Obtener avistamiento + animal (SOLO si está validado)
     // ==================================================
     $stmt = $pdo->prepare("
         SELECT 
-            id,
-            usuario_id,
-            titulo,
-            descripcion,
-            fecha_avistamiento
-        FROM avistamientos
-        WHERE id = ?
-          AND validado = 1
+            a.id,
+            a.usuario_id,
+            a.animal_id,
+            a.titulo,
+            a.descripcion,
+            a.fecha_avistamiento,
+            an.nombre_comun
+        FROM avistamientos a
+        INNER JOIN animales an ON an.id = a.animal_id
+        WHERE a.id = ?
+          AND a.validado = 1
         LIMIT 1
     ");
     $stmt->execute([$avistamientoId]);
@@ -133,7 +136,6 @@ try {
         FROM avistamientos_comentarios
         WHERE avistamiento_id = ?
           AND estado = 'activo'
-          AND estado_moderacion = 'aprobado'
     ");
     $stmt->execute([$avistamientoId]);
     $totalComentarios = (int) $stmt->fetchColumn();
@@ -148,7 +150,11 @@ try {
             "descripcion" => $avistamiento['descripcion'],
             "fecha" => $avistamiento['fecha_avistamiento'],
             "imagenes" => $imagenes,
-            "es_dueno" => ($usuarioId === $duenoAvistamientoId)
+            "es_dueno" => ($usuarioId === $duenoAvistamientoId),
+            "animal" => [
+                "id" => (int) $avistamiento['animal_id'],
+                "nombre_comun" => $avistamiento['nombre_comun']
+            ]
         ],
         "metricas" => [
             "likes" => $totalLikes,
