@@ -17,7 +17,6 @@ require_once '../../config/db.php';
 require_once '../../includes/Auth.php';
 
 // 2. Recibir el token estrictamente por POST
-// La app debe enviar un campo llamado 'token' en el cuerpo del Form-Data
 $tokenRecibido = $_POST['token'] ?? '';
 
 if (empty($tokenRecibido)) {
@@ -45,12 +44,12 @@ try {
                 "id" => $datosUsuario['usuario_id'],
                 "nombre" => $datosUsuario['nombre_completo'],
                 "usuario" => $datosUsuario['nombre_usuario'],
-                "rol" => $datosUsuario['rol']
+                "rol" => $datosUsuario['rol'],
+                "paquete_predeterminado" => $datosUsuario['paquete_predeterminado'] 
             ]
         ]);
     } else {
-        // --- CASO 2: SESIÓN INVÁLIDA (Expirada, cerrada o inexistente) ---
-        // Devolvemos 200 OK para que la app lea el JSON, pero con "activo": false
+        // --- CASO 2: SESIÓN INVÁLIDA ---
         http_response_code(200);
         echo json_encode([
             "activo" => false,
@@ -59,6 +58,7 @@ try {
     }
 
 } catch (Exception $e) {
+    // Si el error fue una excepción (ej: falla la DB en db.php, o la consulta falla en Auth.php)
     http_response_code(500);
     echo json_encode(["error" => "Error del servidor: " . $e->getMessage()]);
 }

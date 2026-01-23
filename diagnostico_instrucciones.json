@@ -1,24 +1,40 @@
 {
   "extensiones": {
     "openssl": {
-      "descripcion": "Crítico: Requerido para generar las llaves criptográficas (RSA/PEM).",
-      "solucion": "Descomentar 'extension=openssl' en php.ini y reiniciar el servidor."
+      "descripcion": "Crítico: Requerido para generar y descifrar las llaves criptográficas (RSA/PEM).",
+      "solucion": "Asegurarse de que la extensión esté activa. En Windows, descomentar 'extension=openssl' en php.ini. En Linux, instalar con 'sudo apt install php-openssl'. Reiniciar el servidor."
     },
     "pdo_mysql": {
-      "descripcion": "Crítico: Requerido para la conexión a la base de datos.",
+      "descripcion": "Crítico: Necesario para la conexión y operaciones con la base de datos.",
       "solucion": "Descomentar 'extension=pdo_mysql' en php.ini y reiniciar el servidor."
     },
     "json": {
-      "descripcion": "Crítico: Requerido para codificar y decodificar datos de la API.",
-      "solucion": "Descomentar 'extension=json' en php.ini y reiniciar el servidor."
+      "descripcion": "Crítico: Requerido para codificar y decodificar datos JSON en la API.",
+      "solucion": "Descomentar 'extension=json' en php.ini o instalar el módulo JSON según el sistema operativo."
     }
   },
   "database": {
-    "descripcion": "Verificación de la conexión a la base de datos (credenciales, servicio activo).",
-    "solucion": "Verificar que el servidor MySQL esté activo y que los datos en config/db.php sean correctos."
+    "descripcion": "Verificación de la conexión a la base de datos: credenciales, disponibilidad y permisos de usuario.",
+    "solucion": "Asegurar que MySQL esté activo, que el usuario y contraseña en config/db.php sean correctos y que el usuario MySQL tenga permisos suficientes."
   },
   "directory": {
-    "descripcion": "Verificación de existencia y permisos de escritura/lectura.",
-    "solucion_permisos": "Verificar que la ruta exista. Otorgar permisos de escritura/lectura (chmod 700 o 777) para que PHP pueda operar en esta carpeta."
+    "descripcion": "Verificación de existencia y permisos de lectura/escritura en directorios esenciales.",
+    "solucion_permisos": "Crear las carpetas faltantes y otorgar permisos adecuados. Ejemplo en Linux: chmod 700 o chmod 777 según necesidad."
+  },
+  "seguridad": {
+    "public_llaves": {
+      "descripcion": "La carpeta 'public/llaves' debe existir y almacenar únicamente las llaves privadas generadas.",
+      "solucion": "Crear la carpeta si no existe. Ruta obligatoria: /public/llaves/"
+    },
+    "htaccess": {
+      "descripcion": "Todas las carpetas sensibles deben incluir un archivo .htaccess que bloquee el acceso externo.",
+      "contenido_requerido": "# Bloquea acceso directo a los archivos.\nOrder Deny,Allow\nDeny from all",
+      "carpetas": [
+        "public/llaves",
+        "public/json",
+        "public/uploads"
+      ],
+      "solucion": "Crear el archivo .htaccess en cada carpeta listada con la regla indicada."
+    }
   }
 }

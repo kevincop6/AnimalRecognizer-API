@@ -111,18 +111,17 @@ class Auth {
      * Verifica si un token es válido, está activo y no ha expirado.
      * Retorna los datos del usuario si es válido, o FALSE si no lo es.
      */
+   
     public function validarToken($token) {
         if (empty($token)) {
             return false;
         }
 
-        // Consulta SQL estricta:
-        // 1. Coincide el token
-        // 2. activo = 1 (No se ha cerrado sesión en otro lado)
-        // 3. fecha_expiracion es mayor que AHORA (No ha caducado por tiempo)
-        $sql = "SELECT s.usuario_id, u.rol, u.nombre_usuario, u.nombre_completo 
+        // Consulta SQL actualizada para incluir el paquete_predeterminado:
+        $sql = "SELECT s.usuario_id, u.rol, u.nombre_usuario, u.nombre_completo, c.paquete_predeterminado 
                 FROM sesiones_usuarios s
                 JOIN usuarios u ON s.usuario_id = u.id
+                JOIN configuracion_usuario c ON s.usuario_id = c.usuario_id  /* <-- 1. Nuevo JOIN */
                 WHERE s.token = :token 
                   AND s.activo = 1 
                   AND s.fecha_expiracion > NOW() 

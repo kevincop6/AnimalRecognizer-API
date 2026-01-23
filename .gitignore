@@ -8,13 +8,11 @@ public/llaves/*
 *.key
 *.pem
 *.ppk
+*.json
 id_rsa
 id_ed25519
 
 # ======================================================
 # 🗂️ ARCHIVOS JSON PRIVILEGIADOS — NO subir al repositorio
 # ======================================================
-/public/json/
-/public/json/*
-public/json/
 public/json/*
