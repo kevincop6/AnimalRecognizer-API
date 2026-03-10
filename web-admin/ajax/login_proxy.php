@@ -6,54 +6,68 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 
-// Rutas a la lógica central
-require_once '../../config/db.php';     
-require_once '../includes/AdminAuth.php'; // 🚩 APUNTA A LA NUEVA CLASE AUTÓNOMA
+$db_bypass = true;
+require_once '../../config/db.php';
+require_once '../includes/AdminAuth.php';
 
 try {
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(204);
+        exit;
+    }
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         http_response_code(405);
         throw new Exception("Método no permitido.");
     }
-    
-    // Obtener datos del post
-    $usuario_correo = $_POST['usuario_correo'] ?? '';
-    $password = $_POST['password'] ?? '';
-    $persistir = ($_POST['persistir'] ?? '0') === '1'; 
+
+    $usuario_correo = trim($_POST['usuario_correo'] ?? '');
+    $password       = $_POST['password'] ?? '';
+    $persistirFlag  = $_POST['persistir'] ?? '0';
+    $persistir      = ($persistirFlag === '1');
 
     if (empty($usuario_correo) || empty($password)) {
         http_response_code(400);
         throw new Exception("Usuario/Correo y Contraseña son requeridos.");
     }
 
-    // 🚩 INSTANCIAMOS LA CLASE ADMINAUTH
-    $auth = new AdminAuth($pdo); // $pdo viene de db.php
-    
-    // Ejecutar el login 
+    $auth        = new AdminAuth($pdo);
     $loginResult = $auth->login($usuario_correo, $password, $persistir);
 
-    // CONSTRUIR RESPUESTA JSON ESTÁNDAR DE API
+    // Cookie que lee dashboard.php
+    $duracionSegundos = $persistir ? (60 * 60 * 24 * 30) : (60 * 60 * 2);
+    setcookie(
+        'admin_token',
+        $loginResult['token'],
+        time() + $duracionSegundos,
+        "/",
+        "",
+        false,
+        true
+    );
+
     http_response_code(200);
     echo json_encode([
-        "mensaje" => "Inicio de sesión exitoso", 
-        "token" => $loginResult['token'],
+        "success" => true,
+        "mensaje" => "Inicio de sesión exitoso",
+        "token"   => $loginResult['token'],
         "usuario" => [
-            "id" => $loginResult['id'],
-            "nombre" => $loginResult['nombre'],
+            "id"      => $loginResult['id'],
+            "nombre"  => $loginResult['nombre'],
             "usuario" => $loginResult['nombre_usuario'],
-            "rol" => $loginResult['rol']
+            "rol"     => $loginResult['rol']
         ]
     ]);
+    exit;
 
 } catch (Exception $e) {
-    // Manejo de errores 
-    $isAuthError = (strpos($e->getMessage(), 'Credenciales incorrectas') !== false || strpos($e->getMessage(), 'acceso no autorizado') !== false || strpos(strtolower($e->getMessage()), 'desactivada') !== false);
-    $statusCode = $isAuthError ? 401 : 500;
-    
-    http_response_code($statusCode);
-    echo json_encode([
-        "success" => false,
-        "message" => $e->getMessage()
-    ]);
+    $msg = $e->getMessage();
+    $isAuthError = (
+        strpos($msg, 'Credenciales incorrectas') !== false ||
+        strpos($msg, 'No tienes los permisos necesarios') !== false ||
+        strpos(strtolower($msg), 'desactivada') !== false
+    );
+    http_response_code($isAuthError ? 401 : 500);
+    echo json_encode(["success" => false, "message" => $msg]);
+    exit;
 }
-?>

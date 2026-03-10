@@ -127,7 +127,7 @@ $(document).ready(function() {
                     timer: 1500,
                     showConfirmButton: false
                 }).then(() => {
-                    window.location.href = 'dashboard.html'; // Redirigir
+                    window.location.href = 'dashboard.php'; // Redirigir
                 });
             } else {
                  return Promise.reject({ message: 'Respuesta de éxito inesperada.' });
@@ -156,7 +156,7 @@ function checkAdminSession() {
     const userRole = localStorage.getItem('userRole');
     
     // Ruta de la página de login actual (Asumimos login.html o index.php)
-    const loginPage = 'login.html'; 
+    const loginPage = 'index.php'; 
     const isLoginPage = window.location.pathname.includes(loginPage) || window.location.pathname.endsWith('/');
 
     // 2. Si no hay token y no estamos en el login, redirigir.
@@ -183,7 +183,7 @@ function checkAdminSession() {
             // Éxito (200 OK): Si estamos en el login, redirigir al dashboard.
             if (isLoginPage) {
                 console.log("Sesión válida. Redirigiendo a dashboard...");
-                window.location.href = 'dashboard.html'; 
+                window.location.href = 'dashboard.php'; 
             }
         },
         
